@@ -21,11 +21,11 @@ from typing import TYPE_CHECKING
 import torch
 from scipy.interpolate import NdBSpline
 
-from odense.bspline import (
+from bspline import (
     TorchBSpline3D,
     _bspline_basis_funs,
     _build_interp_matrix_1d,
-    _dbknot,
+    _build_knot_vector,
     _find_span,
     _solve_multi_rhs,
 )
@@ -37,40 +37,40 @@ if TYPE_CHECKING:
 class TestDBKnot(unittest.TestCase):
     """Tests for knot-vector generation and argument checks."""
 
-    def test_dbknot_even_order(self) -> None:
+    def test_build_knot_vector_even_order(self) -> None:
         """Even-order knot generation repeats boundaries/places interior on nodes."""
         x_nodes = torch.tensor([0.0, 1.0, 3.0, 7.0], dtype=torch.float64)
         k = 4
 
-        knots = _dbknot(x_nodes=x_nodes, k=k)
+        knots = _build_knot_vector(x_nodes=x_nodes, k=k)
         rnot = x_nodes[-1] + 0.1 * (x_nodes[-1] - x_nodes[-2])
         expected = torch.tensor([0.0, 0.0, 0.0, 0.0, rnot, rnot, rnot, rnot])
 
         self.assertEqual(knots.shape, (x_nodes.numel() + k,))
         self.assertTrue(torch.allclose(knots, expected))
 
-    def test_dbknot_odd_order(self) -> None:
+    def test_build_knot_vector_odd_order(self) -> None:
         """Odd-order knot generation places interior knots between neighboring nodes."""
         x_nodes = torch.tensor([0.0, 1.0, 2.0, 4.0, 8.0], dtype=torch.float64)
         k = 3
 
-        knots = _dbknot(x_nodes=x_nodes, k=k)
+        knots = _build_knot_vector(x_nodes=x_nodes, k=k)
         rnot = x_nodes[-1] + 0.1 * (x_nodes[-1] - x_nodes[-2])
         expected = torch.tensor([0.0, 0.0, 0.0, 1.5, 3.0, rnot, rnot, rnot])
 
         self.assertEqual(knots.shape, (x_nodes.numel() + k,))
         self.assertTrue(torch.allclose(knots, expected))
 
-    def test_dbknot_validation(self) -> None:
+    def test_build_knot_vector_validation(self) -> None:
         """Invalid dimensionality/monotonicity/order inputs are rejected."""
         with self.assertRaisesRegex(ValueError, "1D"):
-            _dbknot(x_nodes=torch.ones((2, 2)), k=3)
+            _build_knot_vector(x_nodes=torch.ones((2, 2)), k=3)
         with self.assertRaisesRegex(ValueError, "strictly increasing"):
-            _dbknot(x_nodes=torch.tensor([0.0, 0.0, 1.0]), k=3)
+            _build_knot_vector(x_nodes=torch.tensor([0.0, 0.0, 1.0]), k=3)
         with self.assertRaisesRegex(ValueError, "at least 2 points"):
-            _dbknot(x_nodes=torch.tensor([0.0]), k=3)
+            _build_knot_vector(x_nodes=torch.tensor([0.0]), k=3)
         with self.assertRaisesRegex(ValueError, "at least 2"):
-            _dbknot(x_nodes=torch.tensor([0.0, 1.0]), k=1)
+            _build_knot_vector(x_nodes=torch.tensor([0.0, 1.0]), k=1)
 
 
 class TestBasisAndSpans(unittest.TestCase):
@@ -80,7 +80,7 @@ class TestBasisAndSpans(unittest.TestCase):
         """Out-of-domain points clamp to boundary spans in ``clamp`` mode."""
         x_nodes = torch.linspace(0.0, 4.0, 5, dtype=torch.float64)
         k = 3
-        t = _dbknot(x_nodes=x_nodes, k=k)
+        t = _build_knot_vector(x_nodes=x_nodes, k=k)
         xq = torch.tensor([-10.0, 0.2, 10.0], dtype=torch.float64)
 
         spans = _find_span(t=t, ncoef=x_nodes.numel(), k=k, xq=xq)
@@ -91,7 +91,7 @@ class TestBasisAndSpans(unittest.TestCase):
         """Active basis values sum to one for each query point."""
         x_nodes = torch.linspace(0.0, 4.0, 5, dtype=torch.float64)
         k = 4
-        t = _dbknot(x_nodes=x_nodes, k=k)
+        t = _build_knot_vector(x_nodes=x_nodes, k=k)
         xq = torch.tensor([0.0, 0.4, 1.5, 3.8, 4.0], dtype=torch.float64)
         span = _find_span(t=t, ncoef=x_nodes.numel(), k=k, xq=xq)
 
@@ -206,7 +206,7 @@ class TestTorchBSpline3D(unittest.TestCase):
 
     def test_build_interp_matrix_and_solve(self) -> None:
         """Helper solve reconstructs RHS when projected back through matrix A."""
-        t = _dbknot(x_nodes=self.x, k=self.kx)
+        t = _build_knot_vector(x_nodes=self.x, k=self.kx)
         interp_matrix = _build_interp_matrix_1d(x_nodes=self.x, t=t, k=self.kx)
 
         rhs = torch.sin(self.x)

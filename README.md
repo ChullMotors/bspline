@@ -1,5 +1,5 @@
 # bspline
-Python implementation of tensor-product bspline interpolation
+Differentiable tensor-product bspline interpolation in python
 
 Inspired by [1]
 
