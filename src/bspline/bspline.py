@@ -1,6 +1,12 @@
 """Python implementation of tensor-product B-spline interpolation. 
 
 Inpsired by bspline-fortran, ref: https://github.com/jacobwilliams/bspline-fortran
+
+Copyright (c) 2026 Monumo Ltd
+All rights reserved.
+
+Licensed under the MIT License. See LICENSE file in the project root.
+
 """
 
 from __future__ import annotations
